@@ -1,140 +1,42 @@
-import Papa from "papaparse";
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api").replace(/\/$/, "");
+const ANALYZE_ENDPOINT = process.env.NEXT_PUBLIC_ANALYZE_ENDPOINT || `${API_BASE_URL}/analyze`;
+const COPILOT_ENDPOINT = process.env.NEXT_PUBLIC_COPILOT_ENDPOINT || `${API_BASE_URL}/copilot`;
 
-/**
- * Parses any CSV dataset directly in the browser and constructs payload for Dashboard.
- */
-function processCsvLocally(file) {
-  return new Promise((resolve, reject) => {
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      dynamicTyping: true,
-      complete: (results) => {
-        const rows = results.data || [];
+async function parseResponse(response) {
+  const contentType = response.headers.get("content-type") || "";
+  const body = contentType.includes("application/json")
+    ? await response.json()
+    : await response.text();
 
-        if (rows.length === 0) {
-          return reject(new Error("The uploaded CSV file is empty."));
-        }
+  if (!response.ok) {
+    const detail =
+      typeof body === "object" && body !== null
+        ? body.detail || body.message || body.error
+        : body;
+    throw new Error(detail || `Backend request failed with status ${response.status}.`);
+  }
 
-        let totalRevenue = 0;
-        const channelCounts = {};
-        const timeSeriesMap = {};
-
-        rows.forEach((row) => {
-          // Detect financial revenue or numeric amounts across common headers
-          const rev =
-            row.Revenue ??
-            row.revenue ??
-            row.Amount ??
-            row.amount ??
-            row.Sales ??
-            row.sales ??
-            row.Total ??
-            row.total ??
-            row["Number of employees"] ??
-            0;
-
-          const numRev = Number(rev) || 0;
-          totalRevenue += numRev;
-
-          // Detect Channel / Industry / Category / Country
-          const channel =
-            row.Channel ||
-            row.channel ||
-            row.Industry ||
-            row.industry ||
-            row.Category ||
-            row.category ||
-            row.Country ||
-            row.country ||
-            "Direct Sales";
-
-          channelCounts[channel] = (channelCounts[channel] || 0) + (numRev || 1);
-
-          // Detect Month / Date / Year
-          const dateVal =
-            row.Month ||
-            row.month ||
-            row.Date ||
-            row.date ||
-            row.Founded ||
-            "Q1";
-
-          timeSeriesMap[dateVal] = (timeSeriesMap[dateVal] || 0) + (numRev || 1);
-        });
-
-        // Identify Top Sales Channel
-        let topChannel = "Direct Sales";
-        let maxVal = 0;
-        Object.entries(channelCounts).forEach(([ch, val]) => {
-          if (val > maxVal) {
-            maxVal = val;
-            topChannel = ch;
-          }
-        });
-
-        // Construct Line/Area Chart Data
-        const chartData =
-          Object.keys(timeSeriesMap).length > 1
-            ? Object.entries(timeSeriesMap).map(([month, val]) => ({
-                month: String(month),
-                MRR: val,
-              }))
-            : [
-                { month: "Jan", MRR: totalRevenue * 0.2 },
-                { month: "Feb", MRR: totalRevenue * 0.4 },
-                { month: "Mar", MRR: totalRevenue * 0.7 },
-                { month: "Apr", MRR: totalRevenue },
-              ];
-
-        // Construct Pie Chart Share Data
-        const palette = ["#2563EB", "#4F46E5", "#10B981", "#F59E0B", "#EC4899"];
-        const grandTotal = Object.values(channelCounts).reduce((a, b) => a + b, 0);
-
-        const marketShareData =
-          Object.keys(channelCounts).length > 0
-            ? Object.entries(channelCounts)
-                .slice(0, 4)
-                .map(([name, val], i) => ({
-                  name: String(name),
-                  value: Math.round((val / (grandTotal || 1)) * 100) || 25,
-                  color: palette[i % palette.length],
-                }))
-            : [{ name: "Direct", value: 100, color: "#2563EB" }];
-
-        const formattedPayload = {
-          summary: {
-            totalRevenueFormatted: `$${totalRevenue.toLocaleString(undefined, {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}`,
-            transactionCount: rows.length,
-            topChannel: String(topChannel),
-          },
-          chartData,
-          marketShareData,
-          aiSummary: {
-            insightText: `Successfully parsed ${rows.length} records from ${file.name}. Highest performing segment identified: ${topChannel}.`,
-          },
-        };
-
-        resolve({ data: formattedPayload });
-      },
-      error: (err) => reject(new Error("Failed to parse CSV file: " + err.message)),
-    });
-  });
+  return body;
 }
 
 export async function uploadCsvToBackend(file) {
-  return await processCsvLocally(file);
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return parseResponse(
+    await fetch(ANALYZE_ENDPOINT, {
+      method: "POST",
+      body: formData,
+    })
+  );
 }
 
-export async function sendCopilotPrompt(prompt) {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        response: `Analysis for "${prompt}": The uploaded dataset demonstrates consistent performance metrics across primary segments.`,
-      });
-    }, 600);
-  });
+export async function sendCopilotPrompt(prompt, context) {
+  return parseResponse(
+    await fetch(COPILOT_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt, context }),
+    })
+  );
 }
