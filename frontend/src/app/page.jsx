@@ -2,9 +2,11 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Navbar } from "@/components/navbar";
+import Navbar from "@/components/Navbar";
 import { Dropzone } from "@/components/upload/dropzone";
+import { AnalysisHistory } from "@/components/analysis/AnalysisHistory";
 import { uploadCsvToBackend } from "@/services/api";
+import { findDuplicate, hashFile, saveAnalysisWithMetadata } from "@/utils/analysisStorage";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB Limit
 
@@ -16,13 +18,13 @@ export default function UploadPage() {
   const handleFileUpload = async (file) => {
     setErrorMessage("");
 
-    // 1. Client-Side Extension Validation
+    // 1. Extension Validation
     if (!file.name.toLowerCase().endsWith(".csv")) {
       setErrorMessage("Invalid file format. Please select a valid .csv file.");
       return;
     }
 
-    // 2. Client-Side File Size Validation (100MB)
+    // 2. Size Validation
     if (file.size > MAX_FILE_SIZE) {
       setErrorMessage("File size exceeds the 100MB maximum limit.");
       return;
@@ -31,20 +33,24 @@ export default function UploadPage() {
     setIsLoading(true);
 
     try {
-      // 3. Send CSV to API (or fallback service)
+      const fileHash = await hashFile(file);
+      const duplicate = findDuplicate(fileHash);
+      if (duplicate) {
+        setErrorMessage(`Duplicate CSV rejected. This file has the same content as ${duplicate.filename}. Renaming the file does not create a new analysis.`);
+        return;
+      }
+      // 3. Send CSV to API
       const response = await uploadCsvToBackend(file);
-      fetch()
-      // Extract payload based on backend structure
-      const payload = response.data || response;
+      const payload = response.data?.data || response.data || response;
 
-      // Cache processing payload for Dashboard render
-      sessionStorage.setItem("biz_data", JSON.stringify(payload));
-
-      router.push("/dashboard");
+      saveAnalysisWithMetadata(payload, { fileHash });
+      router.push("/ask");
     } catch (err) {
       console.error("Upload error:", err);
       setErrorMessage(
-        err.message || "Failed to process the CSV file. Please try again."
+        err.response?.data?.detail ||
+          err.message ||
+          "Failed to process the CSV file. Please try again."
       );
     } finally {
       setIsLoading(false);
@@ -66,16 +72,14 @@ export default function UploadPage() {
         </div>
 
         <div className="w-full bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
-          {/* Error Banner */}
           {errorMessage && (
             <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium text-center">
               {errorMessage}
             </div>
           )}
 
-          {/* Uploading Loading Banner */}
           {isLoading && (
-            <div className="mt-4 flex items-center justify-center gap-3 p-4 bg-blue-50/80 border border-blue-100 rounded-xl">
+            <div className="mb-4 flex items-center justify-center gap-3 p-4 bg-blue-50/80 border border-blue-100 rounded-xl">
               <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
               <span className="text-xs font-semibold text-blue-700">
                 Uploading & analyzing business metrics...
@@ -85,11 +89,10 @@ export default function UploadPage() {
 
           <Dropzone onFileSelect={handleFileUpload} isLoading={isLoading} />
         </div>
+
+        <AnalysisHistory />
       </main>
 
-      <footer className="text-center py-6 text-xs text-slate-400">
-        © 2026 BizIntel. Built for instant data analytics.
-      </footer>
     </div>
   );
 }

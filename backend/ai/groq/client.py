@@ -5,12 +5,15 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-client = Groq(
-    api_key=os.getenv("GROQ_API_KEY")
-)
+api_key = os.getenv("GROQ_API_KEY")
+client = Groq(api_key=api_key) if api_key else None
 
 
 def ask_groq(prompt: str):
+    if client is None:
+        raise RuntimeError(
+            "GROQ_API_KEY is not configured. Add it to backend/.env before requesting AI analysis."
+        )
 
     response = client.chat.completions.create(
         model="openai/gpt-oss-20b",

@@ -2627,7 +2627,7 @@ function Navbar({ userName = "Upper" }) {
             const checkApiStatus = {
                 "Navbar.useEffect.checkApiStatus": async ()=>{
                     try {
-                        const baseUrl = ("TURBOPACK compile-time value", "http://127.0.0.1:8000") || "http://localhost:5000/api";
+                        const baseUrl = ("TURBOPACK compile-time value", "http://localhost:5000/api") || "http://localhost:5000/api";
                         const res = await fetch(`${baseUrl}/analytics/status`, {
                             method: "HEAD"
                         }).catch({

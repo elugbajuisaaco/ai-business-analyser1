@@ -30,8 +30,11 @@ def main():
         print(f"\n{section}")
         print("-" * 40)
 
-        for key, value in values.items():
-            print(f"{key}: {value}")
+        if isinstance(values, dict):
+            for key, value in values.items():
+                print(f"{key}: {value}")
+        else:
+            print(values)
 
 
 if __name__ == "__main__":

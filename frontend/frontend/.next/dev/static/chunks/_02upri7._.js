@@ -849,7 +849,6 @@ function UploadPage() {
         try {
             // 3. Send CSV to API (or fallback service)
             const response = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$services$2f$api$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["uploadCsvToBackend"])(file);
-            fetch();
             // Extract payload based on backend structure
             const payload = response.data || response;
             // Cache processing payload for Dashboard render

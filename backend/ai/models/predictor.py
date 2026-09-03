@@ -1,32 +1,24 @@
 import numpy as np
 import pandas as pd
-from xgboost import XGBRegressor
+import xgboost as xgb
 
 from ai.models.config import MODEL_FILE, FEATURE_COLUMNS
 
 
-model = XGBRegressor()
+model = xgb.Booster()
 model.load_model(MODEL_FILE)
 
 
 def predict_sales(features: pd.DataFrame):
-
-    missing = [
-        column
-        for column in FEATURE_COLUMNS
-        if column not in features.columns
-    ]
-
-    if missing:
-        raise ValueError(
-            f"Missing model features: {missing}"
-        )
+    if features.empty:
+        return []
 
     # Features used by XGBoost
-    X = features[FEATURE_COLUMNS]
+    # Absent one-hot categories represent zero observations in this upload.
+    X = features.reindex(columns=FEATURE_COLUMNS, fill_value=0)
 
     # Generate predictions
-    predictions = model.predict(X)
+    predictions = model.predict(xgb.DMatrix(X))
 
     predictions = np.clip(
         predictions,
