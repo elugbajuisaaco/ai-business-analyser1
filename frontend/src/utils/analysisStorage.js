@@ -15,6 +15,7 @@ export function getAnalysisHistory() {
             facts: record.payload.facts,
             headers: record.payload.headers,
             preview_rows: record.payload.preview_rows,
+            chartData: record.payload.chartData,
           } : record.payload,
         }))
       : [];
@@ -34,6 +35,7 @@ export function saveAnalysisWithMetadata(payload, metadata = {}) {
     facts: payload.facts,
     headers: payload.headers,
     preview_rows: payload.preview_rows,
+    chartData: payload.chartData,
   };
   const record = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,

@@ -12,6 +12,7 @@ export default function Navbar() {
   const links = [
     { name: "Upload", path: "/" },
     { name: "Dashboard", path: "/dashboard" },
+    { name: "Analytics", path: "/analytics" },
     { name: "Ask AI", path: "/ask" },
     { name: "Results", path: "/results" },
     { name: "Compare", path: "/compare" },
